@@ -1,0 +1,139 @@
+
+from django.conf import settings
+from django.db import models
+
+
+class TarjetaCumpleanos(models.Model):
+
+    class Estado(models.TextChoices):
+        PENDIENTE = 'PENDIENTE', 'Pendiente de revisión'
+        APROBADA = 'APROBADA', 'Aprobada'
+        RECHAZADA = 'RECHAZADA', 'Rechazada'
+
+    bailarin = models.ForeignKey(
+        'bailarines.Bailarin',
+        on_delete=models.PROTECT,
+        related_name='tarjetas_cumpleanos'
+    )
+
+    anio = models.PositiveSmallIntegerField()
+
+    imagen = models.ImageField(
+        upload_to='cumpleanos/tarjetas/',
+        null=True,
+        blank=True
+    )
+
+    estado = models.CharField(
+        max_length=15,
+        choices=Estado.choices,
+        default=Estado.PENDIENTE
+    )
+
+    fecha_generacion = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    fecha_aprobacion = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    aprobado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tarjetas_cumpleanos_aprobadas'
+    )
+
+    observaciones = models.TextField(
+        blank=True
+    )
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cumpleanos_tarjetacumpleanos'
+        verbose_name = 'Tarjeta de cumpleaños'
+        verbose_name_plural = 'Tarjetas de cumpleaños'
+        ordering = ['-anio', 'bailarin__apellidos', 'bailarin__nombres']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['bailarin', 'anio'],
+                name='unique_tarjeta_bailarin_anio'
+            )
+        ]
+
+    def __str__(self):
+        return f'{self.bailarin} - Cumpleaños {self.anio}'
+
+
+class PublicacionRedSocial(models.Model):
+
+    class Plataforma(models.TextChoices):
+        FACEBOOK = 'FACEBOOK', 'Facebook'
+        INSTAGRAM = 'INSTAGRAM', 'Instagram'
+
+    class Estado(models.TextChoices):
+        PENDIENTE = 'PENDIENTE', 'Pendiente'
+        PUBLICADA = 'PUBLICADA', 'Publicada'
+        ERROR = 'ERROR', 'Error de publicación'
+
+    tarjeta = models.ForeignKey(
+        TarjetaCumpleanos,
+        on_delete=models.PROTECT,
+        related_name='publicaciones'
+    )
+
+    plataforma = models.CharField(
+        max_length=15,
+        choices=Plataforma.choices
+    )
+
+    estado = models.CharField(
+        max_length=15,
+        choices=Estado.choices,
+        default=Estado.PENDIENTE
+    )
+
+    texto_publicacion = models.TextField(
+        blank=True
+    )
+
+    fecha_publicacion = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    id_publicacion_externa = models.CharField(
+        max_length=255,
+        blank=True
+    )
+
+    mensaje_error = models.TextField(
+        blank=True
+    )
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cumpleanos_publicacionredsocial'
+        verbose_name = 'Publicación en red social'
+        verbose_name_plural = 'Publicaciones en redes sociales'
+        ordering = ['-creado_en']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tarjeta', 'plataforma'],
+                name='unique_publicacion_tarjeta_plataforma'
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f'{self.tarjeta} - '
+            f'{self.get_plataforma_display()}'
+        )
