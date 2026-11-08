@@ -1,8 +1,17 @@
 
+import json
+
 from django.db import transaction
 from rest_framework import serializers
 
+from .google_drive import upload_bailarin_photo
 from .models import Bailarin, GrupoFamiliar, Inscripcion
+
+
+class FotografiaField(serializers.ImageField):
+
+    def to_representation(self, value):
+        return value or None
 
 
 class BailarinInscripcionSerializer(serializers.ModelSerializer):
@@ -11,6 +20,16 @@ class BailarinInscripcionSerializer(serializers.ModelSerializer):
         choices=Inscripcion.Estado.choices,
         required=True
     )
+
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except json.JSONDecodeError as error:
+                raise serializers.ValidationError(
+                    'Debe ser un objeto JSON válido.'
+                ) from error
+        return super().to_internal_value(data)
 
     class Meta:
         model = Inscripcion
@@ -49,6 +68,11 @@ class BailarinSerializer(serializers.ModelSerializer):
 
     grupo_familiar = GrupoFamiliarSerializer(read_only=True)
 
+    fotografia = FotografiaField(
+        required=False,
+        allow_null=True
+    )
+
     inscripcion = BailarinInscripcionSerializer(
         required=False,
         write_only=True
@@ -85,11 +109,12 @@ class BailarinSerializer(serializers.ModelSerializer):
             'detalle_enfermedad',
             'correo',
             'fotografia',
+            'fotografia_drive_id',
             'autorizado_publicacion',
             'fecha_autorizacion_publicacion',
         ]
 
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'fotografia_drive_id']
 
     def validate(self, attrs):
         if self.instance is None and 'inscripcion' not in attrs:
@@ -101,6 +126,13 @@ class BailarinSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         inscripcion_data = validated_data.pop('inscripcion')
+        fotografia = validated_data.pop('fotografia', None)
+        if fotografia is not None:
+            fotografia_drive = upload_bailarin_photo(
+                fotografia
+            )
+            validated_data['fotografia'] = fotografia_drive['name']
+            validated_data['fotografia_drive_id'] = fotografia_drive['id']
         bailarin = super().create(validated_data)
         Inscripcion.objects.create(
             bailarin=bailarin,
@@ -111,6 +143,13 @@ class BailarinSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         inscripcion_data = validated_data.pop('inscripcion', None)
+        fotografia = validated_data.get('fotografia')
+        if fotografia is not None:
+            fotografia_drive = upload_bailarin_photo(
+                fotografia
+            )
+            validated_data['fotografia'] = fotografia_drive['name']
+            validated_data['fotografia_drive_id'] = fotografia_drive['id']
         bailarin = super().update(instance, validated_data)
 
         if inscripcion_data is not None:

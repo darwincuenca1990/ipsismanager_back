@@ -1,7 +1,11 @@
 
+from django.http import Http404, HttpResponse
 from django.db.models import OuterRef, Subquery
+from django.utils.http import content_disposition_header
+from rest_framework.decorators import action
 from rest_framework.viewsets import ModelViewSet
 
+from .google_drive import GoogleDriveFileNotFound, download_bailarin_photo
 from .models import Bailarin, GrupoFamiliar, Inscripcion
 from .serializers import (
     BailarinSerializer,
@@ -21,6 +25,33 @@ class BailarinViewSet(ModelViewSet):
     serializer_class = BailarinSerializer
 
     permission_classes = [PermisosPorModelo]
+
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='fotografia'
+    )
+    def fotografia(self, request, pk=None):
+        bailarin = self.get_object()
+        if not bailarin.fotografia_drive_id:
+            raise Http404('Este bailarín no tiene fotografía.')
+
+        try:
+            photo = download_bailarin_photo(
+                bailarin.fotografia_drive_id
+            )
+        except GoogleDriveFileNotFound as error:
+            raise Http404('No se encontró la fotografía.') from error
+
+        response = HttpResponse(
+            photo['content'],
+            content_type=photo['mime_type']
+        )
+        response['Content-Disposition'] = content_disposition_header(
+            False,
+            photo['name']
+        )
+        return response
 
     def get_queryset(self):
         queryset = super().get_queryset()

@@ -10,7 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+
 from pathlib import Path
+from dotenv import load_dotenv
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -135,6 +138,16 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+load_dotenv(BASE_DIR / 'googedrive.env')
+GOOGLE_DRIVE_TOKEN_FILE = BASE_DIR / '.secrets' / 'google_drive_token.json'
+GOOGLE_DRIVE_FOLDER_ID = os.getenv(
+    'GOOGLE_DRIVE_FOLDER_ID',
+    '1cUXyAWAEqSwdtaJg3M1acXdPWR-iejrZ'
+)
+GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID')
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET')
+GOOGLE_OAUTH_REDIRECT_URI = os.getenv('GOOGLE_OAUTH_REDIRECT_URI')
 
 
 # Email

@@ -140,8 +140,14 @@ class Bailarin(models.Model):
 
     correo = models.EmailField(blank=True)
 
-    fotografia = models.ImageField(
-        upload_to='bailarines/',
+    fotografia = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+
+    fotografia_drive_id = models.CharField(
+        max_length=255,
         null=True,
         blank=True
     )
