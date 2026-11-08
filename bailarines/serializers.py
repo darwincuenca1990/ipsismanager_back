@@ -68,6 +68,27 @@ class BailarinSerializer(serializers.ModelSerializer):
 
     grupo_familiar = GrupoFamiliarSerializer(read_only=True)
 
+    fecha_ingreso_agrupacion = serializers.DateField(
+        source='inscripcion_fecha_ingreso_agrupacion',
+        read_only=True,
+        allow_null=True
+    )
+    estado = serializers.CharField(
+        source='inscripcion_estado',
+        read_only=True,
+        allow_null=True
+    )
+    motivo_ingreso_agrupacion = serializers.CharField(
+        source='inscripcion_motivo_ingreso_agrupacion',
+        read_only=True,
+        allow_null=True
+    )
+    fecha_salida = serializers.DateField(
+        source='inscripcion_fecha_salida',
+        read_only=True,
+        allow_null=True
+    )
+
     fotografia = FotografiaField(
         required=False,
         allow_null=True
@@ -91,6 +112,10 @@ class BailarinSerializer(serializers.ModelSerializer):
             'grupo_familiar',
             'grupo_familiar_id',
             'inscripcion',
+            'fecha_ingreso_agrupacion',
+            'estado',
+            'motivo_ingreso_agrupacion',
+            'fecha_salida',
             'elenco',
             'cedula',
             'apellidos',

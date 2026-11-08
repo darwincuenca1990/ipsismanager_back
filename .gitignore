@@ -1,0 +1,13 @@
+﻿# Credenciales y tokens
+.secrets/
+googedrive.env
+.env
+*.env
+
+# Entorno virtual
+.venv/
+venv/
+
+# Archivos Python
+__pycache__/
+*.py[cod]

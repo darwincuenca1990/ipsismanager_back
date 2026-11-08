@@ -58,21 +58,36 @@ class BailarinViewSet(ModelViewSet):
         elenco = self.request.query_params.get('elenco')
         estado = self.request.query_params.get('estado')
 
+        ultima_inscripcion = Inscripcion.objects.filter(
+            bailarin=OuterRef('pk')
+        ).order_by(
+            '-fecha_ingreso_agrupacion',
+            '-id'
+        )
+        queryset = queryset.annotate(
+            inscripcion_fecha_ingreso_agrupacion=Subquery(
+                ultima_inscripcion.values(
+                    'fecha_ingreso_agrupacion'
+                )[:1]
+            ),
+            inscripcion_estado=Subquery(
+                ultima_inscripcion.values('estado')[:1]
+            ),
+            inscripcion_motivo_ingreso_agrupacion=Subquery(
+                ultima_inscripcion.values(
+                    'motivo_ingreso_agrupacion'
+                )[:1]
+            ),
+            inscripcion_fecha_salida=Subquery(
+                ultima_inscripcion.values('fecha_salida')[:1]
+            ),
+        )
+
         if elenco and elenco.lower() != 'todos':
             queryset = queryset.filter(elenco=elenco)
 
         if estado:
-            ultima_inscripcion = Inscripcion.objects.filter(
-                bailarin=OuterRef('pk')
-            ).order_by(
-                '-fecha_ingreso_agrupacion',
-                '-id'
-            )
-            queryset = queryset.annotate(
-                estado_inscripcion=Subquery(
-                    ultima_inscripcion.values('estado')[:1]
-                )
-            ).filter(estado_inscripcion=estado)
+            queryset = queryset.filter(inscripcion_estado=estado)
 
         return queryset
 

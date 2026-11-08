@@ -8,3 +8,6 @@
 /dataSources.local.xml
 .env
 *.json
+.secrets/
+googedrive.env
+*.env
