@@ -3,6 +3,36 @@ from django.conf import settings
 from django.db import models
 
 
+class PlantillaCumpleanos(models.Model):
+
+    class Elenco(models.TextChoices):
+        INFANTIL = 'INFANTIL', 'Infantil'
+        PLANTA = 'PLANTA', 'Planta'
+        MASTER = 'MÁSTER', 'Máster'
+
+    elenco = models.CharField(
+        max_length=30,
+        choices=Elenco.choices,
+        unique=True
+    )
+
+    mensaje = models.TextField()
+
+    activa = models.BooleanField(default=True)
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cumpleanos_plantillacumpleanos'
+        verbose_name = 'Plantilla de cumpleaños'
+        verbose_name_plural = 'Plantillas de cumpleaños'
+        ordering = ['elenco']
+
+    def __str__(self):
+        return f'Plantilla de cumpleaños - {self.get_elenco_display()}'
+
+
 class TarjetaCumpleanos(models.Model):
 
     class Estado(models.TextChoices):
@@ -22,6 +52,16 @@ class TarjetaCumpleanos(models.Model):
         upload_to='cumpleanos/tarjetas/',
         null=True,
         blank=True
+    )
+
+    mensaje_generado = models.TextField(blank=True)
+
+    plantilla_utilizada = models.ForeignKey(
+        PlantillaCumpleanos,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tarjetas_generadas'
     )
 
     estado = models.CharField(

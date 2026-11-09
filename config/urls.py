@@ -28,4 +28,5 @@ urlpatterns = [
     path('api/auth/', include('usuarios.urls')),
 
     path('api/', include('bailarines.urls')),
+    path('api/cumpleanos/', include('cumpleanos.urls')),
 ]
