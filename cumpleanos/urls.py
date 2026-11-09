@@ -1,6 +1,7 @@
 from rest_framework.routers import DefaultRouter
+from django.urls import path
 
-from .views import PlantillaCumpleanosViewSet
+from .views import DetectarCumpleanosView, PlantillaCumpleanosViewSet
 
 
 router = DefaultRouter()
@@ -10,4 +11,10 @@ router.register(
     basename='plantilla-cumpleanos'
 )
 
-urlpatterns = router.urls
+urlpatterns = [
+    path(
+        'detector/',
+        DetectarCumpleanosView.as_view(),
+        name='detectar-cumpleanos'
+    ),
+] + router.urls

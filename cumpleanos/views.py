@@ -1,11 +1,13 @@
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from usuarios.permisos import PermisosPorModelo
-from .models import PlantillaCumpleanos
+from .models import PlantillaCumpleanos, TarjetaCumpleanos
 from .serializers import PlantillaCumpleanosSerializer
+from .services import detectar_cumpleanos
 
 
 class PlantillaCumpleanosViewSet(ModelViewSet):
@@ -61,3 +63,11 @@ class PlantillaCumpleanosViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response({'data': [serializer.data]})
+
+
+class DetectarCumpleanosView(APIView):
+    queryset = TarjetaCumpleanos.objects.all()
+    permission_classes = [PermisosPorModelo]
+
+    def post(self, request):
+        return Response(detectar_cumpleanos())
