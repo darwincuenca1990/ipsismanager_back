@@ -4,11 +4,17 @@ from django.urls import path
 from .views import (
     DetectarCumpleanosView,
     PlantillaCumpleanosViewSet,
+    PublicacionRedSocialViewSet,
     TarjetaCumpleanosViewSet,
 )
 
 
 router = DefaultRouter()
+router.register(
+    r'publicaciones',
+    PublicacionRedSocialViewSet,
+    basename='publicacion-red-social'
+)
 router.register(
     r'tarjetas',
     TarjetaCumpleanosViewSet,

@@ -1,21 +1,39 @@
+import logging
+from pathlib import PurePosixPath
+
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from usuarios.permisos import PermisosPorModelo
-from .models import PlantillaCumpleanos, TarjetaCumpleanos
+from .models import PlantillaCumpleanos, PublicacionRedSocial, TarjetaCumpleanos
 from .serializers import (
+    FiltroPublicacionesSerializer,
     PlantillaCumpleanosSerializer,
+    PublicacionRedSocialSerializer,
     RechazoTarjetaSerializer,
     TarjetaCumpleanosSerializer,
 )
-from .services import detectar_cumpleanos
+from .services import (
+    FacebookAPIError,
+    detectar_cumpleanos,
+    publicar_fotografia_facebook,
+)
+
+
+logger = logging.getLogger(__name__)
+
+
+class PublicacionFacebookError(APIException):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    default_detail = 'No fue posible publicar la fotografía en Facebook.'
+    default_code = 'error_publicacion_facebook'
 
 
 class PuedeAprobarTarjetas(BasePermission):
@@ -89,6 +107,36 @@ class DetectarCumpleanosView(APIView):
         return Response(detectar_cumpleanos())
 
 
+class PublicacionRedSocialViewSet(ReadOnlyModelViewSet):
+    queryset = PublicacionRedSocial.objects.select_related('tarjeta')
+    serializer_class = PublicacionRedSocialSerializer
+    permission_classes = [PermisosPorModelo]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        filtros = FiltroPublicacionesSerializer(data=self.request.query_params)
+        filtros.is_valid(raise_exception=True)
+        datos = filtros.validated_data
+        if 'estado' in datos:
+            queryset = queryset.filter(estado=datos['estado'])
+        if 'mes_desde' in datos:
+            queryset = queryset.filter(
+                fecha_publicacion__month__gte=datos['mes_desde'],
+                fecha_publicacion__month__lte=datos['mes_hasta'],
+                fecha_publicacion__year=datos.get('anio', timezone.localdate().year)
+            )
+        elif 'anio' in datos:
+            queryset = queryset.filter(fecha_publicacion__year=datos['anio'])
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        return Response({'data': self.get_serializer(queryset, many=True).data})
+
+    def retrieve(self, request, *args, **kwargs):
+        return Response({'data': [self.get_serializer(self.get_object()).data]})
+
+
 class TarjetaCumpleanosViewSet(ReadOnlyModelViewSet):
     queryset = TarjetaCumpleanos.objects.select_related(
         'bailarin',
@@ -145,12 +193,67 @@ class TarjetaCumpleanosViewSet(ReadOnlyModelViewSet):
     @action(detail=True, methods=['post'])
     def aprobar(self, request, pk=None):
         self.get_object()
-        with transaction.atomic():
-            tarjeta = self._tarjeta_pendiente(pk)
-            tarjeta.estado = TarjetaCumpleanos.Estado.APROBADA
-            tarjeta.fecha_aprobacion = timezone.now()
-            tarjeta.aprobado_por = request.user
-            tarjeta.save()
+        publicacion_confirmada = False
+        id_publicacion = None
+        try:
+            with transaction.atomic():
+                tarjeta = self._tarjeta_pendiente(pk)
+                if not tarjeta.imagen:
+                    raise ValidationError('La tarjeta no tiene un afiche para publicar.')
+                publicacion = PublicacionRedSocial.objects.select_for_update().filter(
+                    tarjeta=tarjeta,
+                    plataforma=PublicacionRedSocial.Plataforma.FACEBOOK
+                ).first()
+                if publicacion and publicacion.estado == PublicacionRedSocial.Estado.PUBLICADA:
+                    raise ValidationError(
+                        'La tarjeta ya tiene una publicación en Facebook.'
+                    )
+
+                try:
+                    with tarjeta.imagen.open('rb') as archivo:
+                        resultado = publicar_fotografia_facebook(
+                            archivo,
+                            PurePosixPath(tarjeta.imagen.name).name,
+                            tarjeta.mensaje_generado
+                        )
+                except FacebookAPIError as error:
+                    raise PublicacionFacebookError(str(error)) from error
+                except OSError as error:
+                    logger.exception('No fue posible abrir el afiche de la tarjeta %s.', pk)
+                    raise ValidationError(
+                        'No fue posible abrir el afiche de la tarjeta.'
+                    ) from error
+
+                if resultado.get('publicada') is not True or not resultado.get('id'):
+                    raise PublicacionFacebookError(
+                        'Facebook no confirmó la publicación de la fotografía.'
+                    )
+                publicacion_confirmada = True
+                id_publicacion = resultado.get('post_id') or resultado['id']
+                fecha = timezone.now()
+                PublicacionRedSocial.objects.update_or_create(
+                    tarjeta=tarjeta,
+                    plataforma=PublicacionRedSocial.Plataforma.FACEBOOK,
+                    defaults={
+                        'estado': PublicacionRedSocial.Estado.PUBLICADA,
+                        'texto_publicacion': tarjeta.mensaje_generado,
+                        'fecha_publicacion': fecha,
+                        'id_publicacion_externa': id_publicacion,
+                        'mensaje_error': '',
+                    }
+                )
+                tarjeta.estado = TarjetaCumpleanos.Estado.APROBADA
+                tarjeta.fecha_aprobacion = fecha
+                tarjeta.aprobado_por = request.user
+                tarjeta.save()
+        except Exception:
+            if publicacion_confirmada:
+                logger.exception(
+                    'La tarjeta %s se publicó en Facebook (id: %s), pero no se pudo '
+                    'guardar la aprobación. Verifique la publicación antes de reintentar.',
+                    pk, id_publicacion
+                )
+            raise
         return Response({'data': [self.get_serializer(tarjeta).data]})
 
     @action(detail=True, methods=['post'])

@@ -1,6 +1,68 @@
 from rest_framework import serializers
 
-from .models import PlantillaCumpleanos, TarjetaCumpleanos
+from .models import PlantillaCumpleanos, PublicacionRedSocial, TarjetaCumpleanos
+
+
+class PublicacionRedSocialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PublicacionRedSocial
+        fields = [
+            'id', 'tarjeta', 'plataforma', 'estado', 'texto_publicacion',
+            'fecha_publicacion', 'id_publicacion_externa', 'mensaje_error',
+            'creado_en', 'actualizado_en',
+        ]
+        read_only_fields = fields
+
+
+class FiltroPublicacionesSerializer(serializers.Serializer):
+    estado = serializers.ChoiceField(
+        choices=PublicacionRedSocial.Estado.choices, required=False
+    )
+    mes_desde = serializers.CharField(required=False)
+    mes_hasta = serializers.CharField(required=False)
+    anio = serializers.IntegerField(min_value=1, max_value=9999, required=False)
+
+    def to_internal_value(self, data):
+        desconocidos = set(data.keys()) - set(self.fields)
+        if desconocidos:
+            raise serializers.ValidationError({
+                campo: 'Parámetro no permitido.' for campo in sorted(desconocidos)
+            })
+        return super().to_internal_value(data)
+
+    def _validar_mes(self, value):
+        meses = (
+            'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+            'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE',
+            'DICIEMBRE',
+        )
+        valor = value.strip().upper()
+        if valor in meses:
+            return meses.index(valor) + 1
+        if valor.isascii() and valor.isdigit() and 1 <= int(valor) <= 12:
+            return int(valor)
+        raise serializers.ValidationError(
+            'Indique un mes válido, por nombre o número del 1 al 12.'
+        )
+
+    def validate_mes_desde(self, value):
+        return self._validar_mes(value)
+
+    def validate_mes_hasta(self, value):
+        return self._validar_mes(value)
+
+    def validate(self, attrs):
+        desde = attrs.get('mes_desde')
+        hasta = attrs.get('mes_hasta')
+        if (desde is None) != (hasta is None):
+            raise serializers.ValidationError({
+                'mes_desde': 'Debe enviar ambos extremos del rango de meses.'
+            })
+        if desde is not None and desde > hasta:
+            raise serializers.ValidationError({
+                'mes_hasta': 'Debe ser igual o posterior a mes_desde.'
+            })
+        return attrs
 
 
 class PlantillaCumpleanosSerializer(serializers.ModelSerializer):

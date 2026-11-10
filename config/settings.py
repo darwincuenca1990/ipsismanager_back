@@ -184,3 +184,16 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
+
+load_dotenv(BASE_DIR / 'facebook.env')
+
+FACEBOOK_APP_ID = os.getenv('FACEBOOK_APP_ID')
+FACEBOOK_APP_SECRET = os.getenv('FACEBOOK_APP_SECRET')
+FACEBOOK_PAGE_ID = os.getenv('FACEBOOK_PAGE_ID')
+FACEBOOK_PAGE_ACCESS_TOKEN = os.getenv(
+    'FACEBOOK_PAGE_ACCESS_TOKEN'
+)
+FACEBOOK_API_VERSION = os.getenv(
+    'FACEBOOK_API_VERSION',
+    'v26.0'
+)
