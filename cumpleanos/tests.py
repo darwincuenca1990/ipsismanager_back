@@ -209,6 +209,110 @@ class PlantillaCumpleanosEndpointTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data['generadas']), 1)
 
+    def test_skipped_bailarin_is_recorded_as_not_generated(self):
+        bailarin = self.crear_bailarin(autorizado_publicacion=False)
+
+        detectar_cumpleanos(date(2026, 11, 9))
+
+        tarjeta = bailarin.tarjetas_cumpleanos.get(anio=2026)
+        self.assertEqual(tarjeta.estado_generacion, 'NO_GENERADA')
+        self.assertIn('autorización', tarjeta.motivo_no_generacion)
+
+    @patch('cumpleanos.services.generar_afiche', side_effect=OSError('boom'))
+    def test_generation_failure_is_recorded_then_recovered(self, mock):
+        bailarin = self.crear_bailarin()
+
+        resultado = detectar_cumpleanos(date(2026, 11, 9))
+
+        self.assertEqual(len(resultado['omitidas']), 1)
+        tarjeta = bailarin.tarjetas_cumpleanos.get(anio=2026)
+        self.assertEqual(tarjeta.estado_generacion, 'NO_GENERADA')
+        self.assertIn('boom', tarjeta.motivo_no_generacion)
+
+        with patch(
+            'cumpleanos.services.generar_afiche',
+            return_value=b'afiche'
+        ):
+            detectar_cumpleanos(date(2026, 11, 9))
+        tarjeta.refresh_from_db()
+        self.assertEqual(tarjeta.estado_generacion, 'GENERADA')
+        self.assertEqual(tarjeta.motivo_no_generacion, '')
+        self.assertIsNotNone(tarjeta.fecha_generacion)
+
+    def crear_tarjeta_generada(self):
+        bailarin = self.crear_bailarin()
+        return bailarin.tarjetas_cumpleanos.create(
+            anio=2026,
+            estado_generacion='GENERADA'
+        )
+
+    def test_approve_records_user_and_date(self):
+        tarjeta = self.crear_tarjeta_generada()
+
+        response = self.client.post(
+            reverse('tarjeta-cumpleanos-aprobar', args=[tarjeta.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        tarjeta.refresh_from_db()
+        self.assertEqual(tarjeta.estado, 'APROBADA')
+        self.assertEqual(tarjeta.aprobado_por.username, 'admin')
+        self.assertIsNotNone(tarjeta.fecha_aprobacion)
+        self.assertEqual(response.data['data'][0]['estado'], 'APROBADA')
+
+        again = self.client.post(
+            reverse('tarjeta-cumpleanos-aprobar', args=[tarjeta.id])
+        )
+        self.assertEqual(again.status_code, 400)
+
+    def test_reject_requires_reason_and_records_data(self):
+        tarjeta = self.crear_tarjeta_generada()
+        url = reverse('tarjeta-cumpleanos-rechazar', args=[tarjeta.id])
+
+        self.assertEqual(self.client.post(url, {}).status_code, 400)
+        response = self.client.post(url, {'motivo': 'Foto borrosa'})
+
+        self.assertEqual(response.status_code, 200)
+        tarjeta.refresh_from_db()
+        self.assertEqual(tarjeta.estado, 'RECHAZADA')
+        self.assertEqual(tarjeta.motivo_rechazo, 'Foto borrosa')
+        self.assertEqual(tarjeta.rechazado_por.username, 'admin')
+        self.assertIsNotNone(tarjeta.fecha_rechazo)
+
+    def test_cannot_review_not_generated_card(self):
+        bailarin = self.crear_bailarin()
+        tarjeta = bailarin.tarjetas_cumpleanos.create(anio=2026)
+
+        response = self.client.post(
+            reverse('tarjeta-cumpleanos-aprobar', args=[tarjeta.id])
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_approve_requires_permission(self):
+        tarjeta = self.crear_tarjeta_generada()
+        usuario = get_user_model().objects.create_user(
+            username='lector',
+            password='x'
+        )
+        self.client.force_authenticate(usuario)
+
+        response = self.client.post(
+            reverse('tarjeta-cumpleanos-aprobar', args=[tarjeta.id])
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_list_cards_filters_by_state(self):
+        self.crear_tarjeta_generada()
+
+        response = self.client.get(
+            reverse('tarjeta-cumpleanos-list'),
+            {'estado_generacion': 'NO_GENERADA'}
+        )
+
+        self.assertEqual(response.data['data'], [])
+
     @patch('cumpleanos.generador_afiches.download_bailarin_photo')
     def test_afiche_generator_uses_drive_photo_and_template(
         self,

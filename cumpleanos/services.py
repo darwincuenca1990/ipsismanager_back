@@ -1,10 +1,31 @@
 from django.core.files.base import ContentFile
 from django.db.models import OuterRef, Subquery
 from django.utils import timezone
+from rest_framework.exceptions import APIException
 
 from bailarines.models import Bailarin, Inscripcion
 from .generador_afiches import generar_afiche
 from .models import PlantillaCumpleanos, TarjetaCumpleanos
+
+
+def _registrar_no_generada(bailarin, anio, plantilla, motivo):
+    tarjeta, _ = TarjetaCumpleanos.objects.get_or_create(
+        bailarin=bailarin,
+        anio=anio
+    )
+    if tarjeta.imagen:
+        return tarjeta
+
+    tarjeta.estado_generacion = TarjetaCumpleanos.EstadoGeneracion.NO_GENERADA
+    tarjeta.motivo_no_generacion = motivo
+    tarjeta.plantilla_utilizada = plantilla
+    tarjeta.save(update_fields=[
+        'estado_generacion',
+        'motivo_no_generacion',
+        'plantilla_utilizada',
+        'actualizado_en',
+    ])
+    return tarjeta
 
 
 def detectar_cumpleanos(fecha=None):
@@ -65,13 +86,20 @@ def detectar_cumpleanos(fecha=None):
             )
 
         if motivos:
+            texto_motivos = '; '.join(motivos)
+            _registrar_no_generada(
+                bailarin,
+                fecha.year,
+                plantilla,
+                texto_motivos
+            )
             resultado['omitidas'].append({
                 'bailarin_id': bailarin.id,
                 'bailarin': nombre_completo,
                 'mensaje': (
                     f'PARA EL BAILARIN {nombre_completo} NO SE GENERO '
                     f'LA TARJETA POR LOS SIGUIENTES MOTIVOS: '
-                    f'{"; ".join(motivos)}.'
+                    f'{texto_motivos}.'
                 ),
                 'motivos': motivos,
             })
@@ -87,7 +115,6 @@ def detectar_cumpleanos(fecha=None):
             defaults={
                 'plantilla_utilizada': plantilla,
                 'mensaje_generado': mensaje,
-                'fecha_generacion': timezone.now(),
             }
         )
         if tarjeta.imagen:
@@ -99,10 +126,38 @@ def detectar_cumpleanos(fecha=None):
             })
             continue
 
-        contenido_afiche = generar_afiche(bailarin, mensaje)
+        contenido_afiche = None
+        try:
+            contenido_afiche = generar_afiche(bailarin, mensaje)
+        except (APIException, OSError, ValueError) as error:
+            motivo = (
+                f'error al generar el afiche: '
+                f'{getattr(error, "detail", error)}'
+            )
+            _registrar_no_generada(
+                bailarin,
+                fecha.year,
+                plantilla,
+                motivo
+            )
+            resultado['omitidas'].append({
+                'bailarin_id': bailarin.id,
+                'bailarin': nombre_completo,
+                'mensaje': (
+                    f'PARA EL BAILARIN {nombre_completo} NO SE GENERO '
+                    f'LA TARJETA POR LOS SIGUIENTES MOTIVOS: {motivo}.'
+                ),
+                'motivos': [motivo],
+            })
+            continue
+
         tarjeta.mensaje_generado = mensaje
         tarjeta.plantilla_utilizada = plantilla
-        tarjeta.fecha_generacion = tarjeta.fecha_generacion or timezone.now()
+        tarjeta.estado_generacion = (
+            TarjetaCumpleanos.EstadoGeneracion.GENERADA
+        )
+        tarjeta.motivo_no_generacion = ''
+        tarjeta.fecha_generacion = timezone.now()
         tarjeta.imagen.save(
             f'afiche_{bailarin.id}_{fecha.year}.jpeg',
             ContentFile(contenido_afiche),

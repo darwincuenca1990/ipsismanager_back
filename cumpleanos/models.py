@@ -35,6 +35,10 @@ class PlantillaCumpleanos(models.Model):
 
 class TarjetaCumpleanos(models.Model):
 
+    class EstadoGeneracion(models.TextChoices):
+        GENERADA = 'GENERADA', 'Afiche generado'
+        NO_GENERADA = 'NO_GENERADA', 'Afiche no generado'
+
     class Estado(models.TextChoices):
         PENDIENTE = 'PENDIENTE', 'Pendiente de revisión'
         APROBADA = 'APROBADA', 'Aprobada'
@@ -55,6 +59,14 @@ class TarjetaCumpleanos(models.Model):
     )
 
     mensaje_generado = models.TextField(blank=True)
+
+    estado_generacion = models.CharField(
+        max_length=15,
+        choices=EstadoGeneracion.choices,
+        default=EstadoGeneracion.NO_GENERADA
+    )
+
+    motivo_no_generacion = models.TextField(blank=True)
 
     plantilla_utilizada = models.ForeignKey(
         PlantillaCumpleanos,
@@ -88,6 +100,21 @@ class TarjetaCumpleanos(models.Model):
         related_name='tarjetas_cumpleanos_aprobadas'
     )
 
+    fecha_rechazo = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    rechazado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tarjetas_cumpleanos_rechazadas'
+    )
+
+    motivo_rechazo = models.TextField(blank=True)
+
     observaciones = models.TextField(
         blank=True
     )
@@ -100,6 +127,12 @@ class TarjetaCumpleanos(models.Model):
         verbose_name = 'Tarjeta de cumpleaños'
         verbose_name_plural = 'Tarjetas de cumpleaños'
         ordering = ['-anio', 'bailarin__apellidos', 'bailarin__nombres']
+        permissions = [
+            (
+                'aprobar_tarjetacumpleanos',
+                'Puede aprobar o rechazar tarjetas de cumpleaños'
+            ),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['bailarin', 'anio'],

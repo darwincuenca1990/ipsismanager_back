@@ -23,14 +23,18 @@ class TarjetaCumpleanosAdmin(admin.ModelAdmin):
     list_display = (
         'bailarin',
         'anio',
+        'estado_generacion',
         'estado',
         'fecha_generacion',
         'fecha_aprobacion',
         'aprobado_por',
+        'fecha_rechazo',
+        'rechazado_por',
     )
 
     list_filter = (
         'anio',
+        'estado_generacion',
         'estado',
     )
 
@@ -43,6 +47,7 @@ class TarjetaCumpleanosAdmin(admin.ModelAdmin):
     readonly_fields = (
         'fecha_generacion',
         'fecha_aprobacion',
+        'fecha_rechazo',
         'creado_en',
         'actualizado_en',
     )
