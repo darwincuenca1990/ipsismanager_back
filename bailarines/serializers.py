@@ -8,6 +8,32 @@ from .google_drive import upload_bailarin_photo
 from .models import Bailarin, GrupoFamiliar, Inscripcion
 
 
+class CumpleanosSemanaParamsSerializer(serializers.Serializer):
+    semana = serializers.ChoiceField(
+        choices=['anterior', 'actual', 'siguiente'],
+        default='actual'
+    )
+
+
+class CumpleanosMesParamsSerializer(serializers.Serializer):
+    mes = serializers.CharField()
+
+    def validate_mes(self, value):
+        meses = (
+            'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+            'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE',
+            'DICIEMBRE',
+        )
+        valor = value.strip().upper()
+        if valor in meses:
+            return meses.index(valor) + 1
+        if valor.isascii() and valor.isdigit() and 1 <= int(valor) <= 12:
+            return int(valor)
+        raise serializers.ValidationError(
+            'Indique un mes válido, por nombre o número del 1 al 12.'
+        )
+
+
 class FotografiaField(serializers.ImageField):
 
     def to_representation(self, value):
