@@ -62,6 +62,10 @@ class GrupoFamiliar(models.Model):
 
 class Bailarin(models.Model):
 
+    class Genero(models.TextChoices):
+        MASCULINO = 'MASCULINO', 'Masculino'
+        FEMENINO = 'FEMENINO', 'Femenino'
+
     class ViveCon(models.TextChoices):
         PADRES = 'PADRES', 'Padres'
         FAMILIARES = 'FAMILIARES', 'Familiares'
@@ -92,6 +96,12 @@ class Bailarin(models.Model):
     )
     apellidos = models.CharField(max_length=150)
     nombres = models.CharField(max_length=150)
+    genero = models.CharField(
+        max_length=9,
+        choices=Genero.choices,
+        null=True,
+        blank=True
+    )
 
     estudia = models.BooleanField(default=False)
     institucion_estudio = models.CharField(

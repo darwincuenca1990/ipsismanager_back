@@ -93,6 +93,11 @@ class GrupoFamiliarSerializer(serializers.ModelSerializer):
 class BailarinSerializer(serializers.ModelSerializer):
 
     grupo_familiar = GrupoFamiliarSerializer(read_only=True)
+    genero = serializers.ChoiceField(
+        choices=Bailarin.Genero.choices,
+        required=False,
+        allow_null=True
+    )
 
     fecha_ingreso_agrupacion = serializers.DateField(
         source='inscripcion_fecha_ingreso_agrupacion',
@@ -146,6 +151,7 @@ class BailarinSerializer(serializers.ModelSerializer):
             'cedula',
             'apellidos',
             'nombres',
+            'genero',
             'estudia',
             'institucion_estudio',
             'trabaja',
