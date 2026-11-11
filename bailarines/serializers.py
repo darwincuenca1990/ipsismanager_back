@@ -174,10 +174,23 @@ class BailarinSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'fotografia_drive_id']
 
     def validate(self, attrs):
+        errors = {}
         if self.instance is None and 'inscripcion' not in attrs:
-            raise serializers.ValidationError({
-                'inscripcion': 'Este campo es obligatorio al crear un bailarín.'
-            })
+            errors['inscripcion'] = 'Este campo es obligatorio al crear un bailarín.'
+        for indicador, campo in (
+            ('estudia', 'institucion_estudio'),
+            ('trabaja', 'lugar_trabajo'),
+        ):
+            activo = attrs.get(
+                indicador, getattr(self.instance, indicador, False)
+            )
+            valor = attrs.get(campo, getattr(self.instance, campo, None))
+            if activo and (not valor or not valor.strip()):
+                errors[campo] = 'Este campo es obligatorio cuando {} es verdadero.'.format(
+                    indicador
+                )
+        if errors:
+            raise serializers.ValidationError(errors)
         return attrs
 
     @transaction.atomic

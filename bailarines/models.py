@@ -5,36 +5,44 @@ class GrupoFamiliar(models.Model):
 
     apellidos_papa = models.CharField(
         max_length=150,
-        blank=True
+        blank=True,
+        null=True
     )
     nombres_papa = models.CharField(
         max_length=150,
-        blank=True
+        blank=True,
+        null=True
     )
     celular_papa = models.CharField(
         max_length=20,
-        blank=True
+        blank=True,
+        null=True
     )
     lugar_trabajo_papa = models.CharField(
         max_length=200,
-        blank=True
+        blank=True,
+        null=True
     )
 
     apellidos_mama = models.CharField(
         max_length=150,
-        blank=True
+        blank=True,
+        null=True
     )
     nombres_mama = models.CharField(
         max_length=150,
-        blank=True
+        blank=True,
+        null=True
     )
     celular_mama = models.CharField(
         max_length=20,
-        blank=True
+        blank=True,
+        null=True
     )
     lugar_trabajo_mama = models.CharField(
         max_length=200,
-        blank=True
+        blank=True,
+        null=True
     )
 
     nombres_completos_representante = models.CharField(
@@ -106,7 +114,8 @@ class Bailarin(models.Model):
     estudia = models.BooleanField(default=False)
     institucion_estudio = models.CharField(
         max_length=200,
-        blank=True
+        blank=True,
+        null=True
     )
 
     trabaja = models.BooleanField(default=False)
@@ -122,7 +131,8 @@ class Bailarin(models.Model):
     )
     referencia_domicilio = models.CharField(
         max_length=250,
-        blank=True
+        blank=True,
+        null=True
     )
 
     vive_con = models.CharField(
