@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'usuarios',
     'bailarines',
     'coreografias',
+    'presentaciones',
     'cumpleanos',
 ]
 

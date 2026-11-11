@@ -6,10 +6,12 @@ from operator import or_
 
 from django.http import Http404, HttpResponse
 from django.db.models import Case, IntegerField, OuterRef, Q, Subquery, Value, When
+from django.db.models.deletion import ProtectedError
 from django.db.models.functions import ExtractDay
 from django.utils import timezone
 from django.utils.http import content_disposition_header
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
@@ -35,6 +37,14 @@ class BailarinViewSet(ModelViewSet):
     serializer_class = BailarinSerializer
 
     permission_classes = [PermisosPorModelo]
+
+    def perform_destroy(self, instance):
+        try:
+            instance.delete()
+        except ProtectedError as error:
+            raise ValidationError(
+                'No se puede eliminar el bailarín porque tiene registros asociados.'
+            ) from error
 
     @action(detail=False, methods=['get'], url_path='candidatos-elenco-planta')
     def candidatos_elenco_planta(self, request):

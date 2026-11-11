@@ -27,6 +27,7 @@ urlpatterns = [
 
     path('api/', include('bailarines.urls')),
     path('api/', include('coreografias.urls')),
+    path('api/', include('presentaciones.urls')),
     path('api/cumpleanos/', include('cumpleanos.urls')),
 ]
 
