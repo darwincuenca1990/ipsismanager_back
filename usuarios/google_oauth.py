@@ -11,6 +11,8 @@ from django.views.decorators.http import require_GET
 from google_auth_oauthlib.flow import Flow
 from oauthlib.oauth2.rfc6749.errors import OAuth2Error
 
+from parametros.servicios import obtener_parametro
+
 
 GOOGLE_DRIVE_SCOPES = [
     'https://www.googleapis.com/auth/drive.file'
@@ -23,9 +25,11 @@ def get_google_flow(state=None, code_verifier=None):
         'GOOGLE_OAUTH_CLIENT_SECRET',
         'GOOGLE_OAUTH_REDIRECT_URI',
     )
+    valores = {
+        nombre: obtener_parametro(nombre) for nombre in required_settings
+    }
     missing_settings = [
-        setting for setting in required_settings
-        if not getattr(settings, setting, None)
+        nombre for nombre, valor in valores.items() if not valor
     ]
     if missing_settings:
         raise ImproperlyConfigured(
@@ -33,15 +37,14 @@ def get_google_flow(state=None, code_verifier=None):
             + ', '.join(missing_settings)
         )
 
+    redirect_uri = valores['GOOGLE_OAUTH_REDIRECT_URI']
     client_config = {
         'web': {
-            'client_id': settings.GOOGLE_OAUTH_CLIENT_ID,
-            'client_secret': settings.GOOGLE_OAUTH_CLIENT_SECRET,
+            'client_id': valores['GOOGLE_OAUTH_CLIENT_ID'],
+            'client_secret': valores['GOOGLE_OAUTH_CLIENT_SECRET'],
             'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
             'token_uri': 'https://oauth2.googleapis.com/token',
-            'redirect_uris': [
-                settings.GOOGLE_OAUTH_REDIRECT_URI
-            ],
+            'redirect_uris': [redirect_uri],
         }
     }
 
@@ -52,7 +55,7 @@ def get_google_flow(state=None, code_verifier=None):
         code_verifier=code_verifier
     )
 
-    flow.redirect_uri = settings.GOOGLE_OAUTH_REDIRECT_URI
+    flow.redirect_uri = redirect_uri
 
     return flow
 

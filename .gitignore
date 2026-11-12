@@ -1,7 +1,7 @@
 ﻿# Credenciales y tokens
 .secrets/
-googedrive.env
-facebook.env
+_googedrive.env
+_facebook.env
 *.env
 
 # Entorno virtual

@@ -2,7 +2,7 @@ from io import BytesIO
 from unittest.mock import Mock, patch
 
 import requests
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase
 
 from .services import (
     FacebookAPIError,
@@ -13,16 +13,19 @@ from .services import (
 )
 
 
-@override_settings(
-    FACEBOOK_APP_ID='app-id',
-    FACEBOOK_APP_SECRET='app-secret',
-    FACEBOOK_PAGE_ID='page-id',
-    FACEBOOK_PAGE_ACCESS_TOKEN='page-token',
-    FACEBOOK_API_VERSION='v26.0',
+@patch(
+    'cumpleanos.services.obtener_parametro',
+    side_effect=lambda nombre, default=None: {
+        'FACEBOOK_APP_ID': 'app-id',
+        'FACEBOOK_APP_SECRET': 'app-secret',
+        'FACEBOOK_PAGE_ID': 'page-id',
+        'FACEBOOK_PAGE_ACCESS_TOKEN': 'page-token',
+        'FACEBOOK_API_VERSION': 'v26.0',
+    }.get(nombre, default)
 )
 class FacebookServiceTests(SimpleTestCase):
 
-    def test_configuracion_y_url(self):
+    def test_configuracion_y_url(self, parametro):
         self.assertEqual(obtener_url_graph(), 'https://graph.facebook.com/v26.0')
         self.assertEqual(obtener_configuracion_facebook(), {
             'app_id': 'app-id',
@@ -31,15 +34,21 @@ class FacebookServiceTests(SimpleTestCase):
             'page_token': 'page-token',
         })
 
-    @override_settings(FACEBOOK_APP_SECRET='', FACEBOOK_PAGE_ID=None)
-    def test_configuracion_faltante(self):
+    def test_configuracion_faltante(self, parametro):
+        valores = {
+            'FACEBOOK_APP_ID': 'app-id',
+            'FACEBOOK_PAGE_ACCESS_TOKEN': 'page-token',
+        }
+        parametro.side_effect = lambda nombre, default=None: valores.get(
+            nombre, default
+        )
         with self.assertRaisesMessage(
             FacebookAPIError, 'app_secret, page_id'
         ):
             obtener_configuracion_facebook()
 
     @patch('cumpleanos.services.requests.get')
-    def test_verificar_conexion(self, get):
+    def test_verificar_conexion(self, get, parametro):
         get.return_value = Mock(
             status_code=200,
             json=Mock(return_value={'id': 'page-id', 'name': 'Pagina'})
@@ -56,7 +65,7 @@ class FacebookServiceTests(SimpleTestCase):
         )
 
     @patch('cumpleanos.services.requests.post')
-    def test_publicar_fotografia_jpeg(self, post):
+    def test_publicar_fotografia_jpeg(self, post, parametro):
         archivo = BytesIO(b'contenido')
         archivo.seek(3)
 
@@ -87,7 +96,7 @@ class FacebookServiceTests(SimpleTestCase):
         self.assertEqual(post.call_args.kwargs['timeout'], 120)
 
     @patch('cumpleanos.services.requests.get')
-    def test_error_de_comunicacion(self, get):
+    def test_error_de_comunicacion(self, get, parametro):
         get.side_effect = requests.Timeout()
         with self.assertRaisesMessage(
             FacebookAPIError, 'No fue posible comunicarse con Facebook.'
@@ -95,7 +104,7 @@ class FacebookServiceTests(SimpleTestCase):
             verificar_conexion_facebook()
 
     @patch('cumpleanos.services.requests.post')
-    def test_error_de_publicacion(self, post):
+    def test_error_de_publicacion(self, post, parametro):
         post.return_value = Mock(
             status_code=400,
             json=Mock(return_value={'error': {'code': 10, 'message': 'Error'}})
@@ -106,7 +115,7 @@ class FacebookServiceTests(SimpleTestCase):
             publicar_fotografia_facebook(BytesIO(b'foto'), 'foto.png', 'Hola')
 
     @patch('cumpleanos.services.requests.get')
-    def test_respuestas_invalidas_o_rechazadas(self, get):
+    def test_respuestas_invalidas_o_rechazadas(self, get, parametro):
         for status, resultado in [
             (200, {'error': {'message': 'Error'}}),
             (200, {'id': 'page-id'}),
@@ -126,7 +135,7 @@ class FacebookServiceTests(SimpleTestCase):
             verificar_conexion_facebook()
 
     @patch('cumpleanos.services.requests.post')
-    def test_publicacion_sin_id_no_se_considera_exitosa(self, post):
+    def test_publicacion_sin_id_no_se_considera_exitosa(self, post, parametro):
         post.return_value = Mock(status_code=200, json=Mock(return_value={}))
         with self.assertRaises(FacebookAPIError):
             publicar_fotografia_facebook(BytesIO(b'foto'), 'foto.png', 'Hola')

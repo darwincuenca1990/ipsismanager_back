@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/', include('coreografias.urls')),
     path('api/', include('presentaciones.urls')),
     path('api/cumpleanos/', include('cumpleanos.urls')),
+    path('api/', include('parametros.urls')),
 ]
 
 if settings.DEBUG:

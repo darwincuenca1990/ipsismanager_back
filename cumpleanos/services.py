@@ -6,9 +6,10 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db.models import OuterRef, Subquery
 from django.utils import timezone
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ValidationError
 
 from bailarines.models import Bailarin, Inscripcion
+from parametros.servicios import obtener_parametro
 from .generador_afiches import generar_afiche
 from .models import PlantillaCumpleanos, TarjetaCumpleanos
 
@@ -21,15 +22,16 @@ class FacebookAPIError(Exception):
 
 
 def obtener_url_graph():
-    return f'https://graph.facebook.com/{settings.FACEBOOK_API_VERSION}'
+    version = obtener_parametro('FACEBOOK_API_VERSION', 'v26.0')
+    return f'https://graph.facebook.com/{version}'
 
 
 def obtener_configuracion_facebook():
     configuracion = {
-        'app_id': settings.FACEBOOK_APP_ID,
-        'app_secret': settings.FACEBOOK_APP_SECRET,
-        'page_id': settings.FACEBOOK_PAGE_ID,
-        'page_token': settings.FACEBOOK_PAGE_ACCESS_TOKEN,
+        'app_id': obtener_parametro('FACEBOOK_APP_ID'),
+        'app_secret': obtener_parametro('FACEBOOK_APP_SECRET'),
+        'page_id': obtener_parametro('FACEBOOK_PAGE_ID'),
+        'page_token': obtener_parametro('FACEBOOK_PAGE_ACCESS_TOKEN'),
     }
     faltantes = [
         nombre for nombre, valor in configuracion.items() if not valor
@@ -126,8 +128,11 @@ def publicar_fotografia_facebook(archivo, nombre_archivo, mensaje):
         if not isinstance(error_meta, dict):
             error_meta = {}
         logger.error(
-            'Facebook rechazó la publicación. Código: %s',
-            error_meta.get('code')
+            'Facebook rechazó la publicación. Código: %s. Subcódigo: %s. '
+            'Mensaje: %s',
+            error_meta.get('code'),
+            error_meta.get('error_subcode'),
+            error_meta.get('message')
         )
         raise FacebookAPIError('Facebook no pudo publicar la fotografía.')
     if not resultado.get('id'):
@@ -174,6 +179,68 @@ def _registrar_existente(resultado, tarjeta, nombre):
             f'{tarjeta.anio} ya se encuentra realizada.'
         ),
     })
+
+
+def generar_tarjeta_manual(tarjeta):
+    """Reintenta generar el afiche de una tarjeta NO_GENERADA.
+
+    Devuelve la tarjeta actualizada o lanza ValidationError con los motivos.
+    """
+    bailarin = tarjeta.bailarin
+    ultima = Inscripcion.objects.filter(
+        bailarin=bailarin
+    ).order_by('-fecha_ingreso_agrupacion', '-id').first()
+    plantilla = PlantillaCumpleanos.objects.filter(
+        activa=True,
+        elenco=bailarin.elenco
+    ).first()
+
+    motivos = []
+    if not ultima or ultima.estado != Inscripcion.Estado.ACTIVO:
+        motivos.append('no tiene una inscripción ACTIVO')
+    if not bailarin.autorizado_publicacion:
+        motivos.append('no tiene autorización de publicación ACTIVA')
+    if not bailarin.fotografia or not bailarin.fotografia.strip():
+        motivos.append('no tiene fotografía registrada')
+    if (
+        not bailarin.fotografia_drive_id
+        or not bailarin.fotografia_drive_id.strip()
+    ):
+        motivos.append('no tiene fotografía de Drive registrada')
+    if plantilla is None:
+        motivos.append(
+            f'no existe una plantilla ACTIVA para el elenco {bailarin.elenco}'
+        )
+    if motivos:
+        texto = '; '.join(motivos)
+        _registrar_no_generada(bailarin, tarjeta.anio, plantilla, texto)
+        raise ValidationError(
+            f'No se pudo generar la tarjeta: {texto}.'
+        )
+
+    nombre = f'{bailarin.nombres} {bailarin.apellidos}'.strip()
+    mensaje = plantilla.mensaje.replace('{nombre}', nombre)
+    try:
+        contenido = generar_afiche(bailarin, mensaje)
+    except (APIException, OSError, ValueError) as error:
+        motivo = f'error al generar el afiche: {getattr(error, "detail", error)}'
+        _registrar_no_generada(
+            bailarin, tarjeta.anio, plantilla, motivo, mensaje
+        )
+        raise ValidationError(f'No se pudo generar la tarjeta: {motivo}.')
+
+    tarjeta.imagen.save(
+        f'afiche_{bailarin.id}_{tarjeta.anio}.jpeg',
+        ContentFile(contenido),
+        save=False
+    )
+    tarjeta.mensaje_generado = mensaje
+    tarjeta.plantilla_utilizada = plantilla
+    tarjeta.estado_generacion = TarjetaCumpleanos.EstadoGeneracion.GENERADA
+    tarjeta.motivo_no_generacion = ''
+    tarjeta.fecha_generacion = timezone.now()
+    tarjeta.save()
+    return tarjeta
 
 
 def detectar_cumpleanos(fecha=None):

@@ -23,6 +23,7 @@ from .serializers import (
 from .services import (
     FacebookAPIError,
     detectar_cumpleanos,
+    generar_tarjeta_manual,
     publicar_fotografia_facebook,
 )
 
@@ -147,7 +148,7 @@ class TarjetaCumpleanosViewSet(ReadOnlyModelViewSet):
     permission_classes = [PermisosPorModelo]
 
     def get_permissions(self):
-        if self.action in ('aprobar', 'rechazar'):
+        if self.action in ('aprobar', 'rechazar', 'generar_manual'):
             return [PuedeAprobarTarjetas()]
         return super().get_permissions()
 
@@ -254,6 +255,18 @@ class TarjetaCumpleanosViewSet(ReadOnlyModelViewSet):
                     pk, id_publicacion
                 )
             raise
+        return Response({'data': [self.get_serializer(tarjeta).data]})
+
+    @action(detail=True, methods=['post'], url_path='generar-manual')
+    def generar_manual(self, request, pk=None):
+        self.get_object()
+        with transaction.atomic():
+            tarjeta = TarjetaCumpleanos.objects.select_for_update().select_related(
+                'bailarin'
+            ).get(pk=pk)
+            if tarjeta.imagen:
+                raise ValidationError('La tarjeta ya tiene un afiche generado.')
+            tarjeta = generar_tarjeta_manual(tarjeta)
         return Response({'data': [self.get_serializer(tarjeta).data]})
 
     @action(detail=True, methods=['post'])
