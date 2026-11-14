@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from .google_drive import GoogleDriveFileNotFound, download_bailarin_photo
+from .importacion_excel import importar_bailarines_excel
 from .models import Bailarin, GrupoFamiliar, Inscripcion
 from .serializers import (
     BailarinSerializer,
@@ -37,6 +38,15 @@ class BailarinViewSet(ModelViewSet):
     serializer_class = BailarinSerializer
 
     permission_classes = [PermisosPorModelo]
+
+    @action(detail=False, methods=['post'], url_path='importar-excel')
+    def importar_excel(self, request):
+        archivo = request.FILES.get('archivo')
+        if archivo is None:
+            raise ValidationError({'archivo': 'Adjunte un archivo Excel .xlsx.'})
+        if not archivo.name.lower().endswith('.xlsx'):
+            raise ValidationError({'archivo': 'El archivo debe ser .xlsx.'})
+        return Response(importar_bailarines_excel(archivo))
 
     def perform_destroy(self, instance):
         try:
