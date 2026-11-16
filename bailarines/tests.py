@@ -184,7 +184,7 @@ class BailarinInscripcionSerializerTests(TestCase):
         )
 
     def test_create_requires_inscripcion(self):
-        data = self.bailarín_data()
+        data = self.bailarin_data()
         del data['inscripcion']
         serializer = BailarinSerializer(data=data)
 
