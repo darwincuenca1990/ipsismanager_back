@@ -1,4 +1,3 @@
-
 from django.db import models
 
 
@@ -6,36 +5,44 @@ class GrupoFamiliar(models.Model):
 
     apellidos_papa = models.CharField(
         max_length=150,
-        blank=True
+        blank=True,
+        null=True
     )
     nombres_papa = models.CharField(
         max_length=150,
-        blank=True
+        blank=True,
+        null=True
     )
     celular_papa = models.CharField(
         max_length=20,
-        blank=True
+        blank=True,
+        null=True
     )
     lugar_trabajo_papa = models.CharField(
         max_length=200,
-        blank=True
+        blank=True,
+        null=True
     )
 
     apellidos_mama = models.CharField(
         max_length=150,
-        blank=True
+        blank=True,
+        null=True
     )
     nombres_mama = models.CharField(
         max_length=150,
-        blank=True
+        blank=True,
+        null=True
     )
     celular_mama = models.CharField(
         max_length=20,
-        blank=True
+        blank=True,
+        null=True
     )
     lugar_trabajo_mama = models.CharField(
         max_length=200,
-        blank=True
+        blank=True,
+        null=True
     )
 
     nombres_completos_representante = models.CharField(
@@ -62,6 +69,10 @@ class GrupoFamiliar(models.Model):
 
 
 class Bailarin(models.Model):
+
+    class Genero(models.TextChoices):
+        MASCULINO = 'MASCULINO', 'Masculino'
+        FEMENINO = 'FEMENINO', 'Femenino'
 
     class ViveCon(models.TextChoices):
         PADRES = 'PADRES', 'Padres'
@@ -93,11 +104,18 @@ class Bailarin(models.Model):
     )
     apellidos = models.CharField(max_length=150)
     nombres = models.CharField(max_length=150)
+    genero = models.CharField(
+        max_length=9,
+        choices=Genero.choices,
+        null=True,
+        blank=True
+    )
 
     estudia = models.BooleanField(default=False)
     institucion_estudio = models.CharField(
         max_length=200,
-        blank=True
+        blank=True,
+        null=True
     )
 
     trabaja = models.BooleanField(default=False)
@@ -113,7 +131,8 @@ class Bailarin(models.Model):
     )
     referencia_domicilio = models.CharField(
         max_length=250,
-        blank=True
+        blank=True,
+        null=True
     )
 
     vive_con = models.CharField(
@@ -140,8 +159,14 @@ class Bailarin(models.Model):
 
     correo = models.EmailField(blank=True)
 
-    fotografia = models.ImageField(
-        upload_to='bailarines/',
+    fotografia = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+
+    fotografia_drive_id = models.CharField(
+        max_length=255,
         null=True,
         blank=True
     )

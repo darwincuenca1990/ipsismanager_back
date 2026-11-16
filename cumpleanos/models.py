@@ -3,7 +3,41 @@ from django.conf import settings
 from django.db import models
 
 
+class PlantillaCumpleanos(models.Model):
+
+    class Elenco(models.TextChoices):
+        INFANTIL = 'INFANTIL', 'Infantil'
+        PLANTA = 'PLANTA', 'Planta'
+        MASTER = 'MÁSTER', 'Máster'
+
+    elenco = models.CharField(
+        max_length=30,
+        choices=Elenco.choices,
+        unique=True
+    )
+
+    mensaje = models.TextField()
+
+    activa = models.BooleanField(default=True)
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cumpleanos_plantillacumpleanos'
+        verbose_name = 'Plantilla de cumpleaños'
+        verbose_name_plural = 'Plantillas de cumpleaños'
+        ordering = ['elenco']
+
+    def __str__(self):
+        return f'Plantilla de cumpleaños - {self.get_elenco_display()}'
+
+
 class TarjetaCumpleanos(models.Model):
+
+    class EstadoGeneracion(models.TextChoices):
+        GENERADA = 'GENERADA', 'Afiche generado'
+        NO_GENERADA = 'NO_GENERADA', 'Afiche no generado'
 
     class Estado(models.TextChoices):
         PENDIENTE = 'PENDIENTE', 'Pendiente de revisión'
@@ -22,6 +56,24 @@ class TarjetaCumpleanos(models.Model):
         upload_to='cumpleanos/tarjetas/',
         null=True,
         blank=True
+    )
+
+    mensaje_generado = models.TextField(blank=True)
+
+    estado_generacion = models.CharField(
+        max_length=15,
+        choices=EstadoGeneracion.choices,
+        default=EstadoGeneracion.NO_GENERADA
+    )
+
+    motivo_no_generacion = models.TextField(blank=True)
+
+    plantilla_utilizada = models.ForeignKey(
+        PlantillaCumpleanos,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tarjetas_generadas'
     )
 
     estado = models.CharField(
@@ -48,6 +100,21 @@ class TarjetaCumpleanos(models.Model):
         related_name='tarjetas_cumpleanos_aprobadas'
     )
 
+    fecha_rechazo = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    rechazado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tarjetas_cumpleanos_rechazadas'
+    )
+
+    motivo_rechazo = models.TextField(blank=True)
+
     observaciones = models.TextField(
         blank=True
     )
@@ -60,6 +127,12 @@ class TarjetaCumpleanos(models.Model):
         verbose_name = 'Tarjeta de cumpleaños'
         verbose_name_plural = 'Tarjetas de cumpleaños'
         ordering = ['-anio', 'bailarin__apellidos', 'bailarin__nombres']
+        permissions = [
+            (
+                'aprobar_tarjetacumpleanos',
+                'Puede aprobar o rechazar tarjetas de cumpleaños'
+            ),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['bailarin', 'anio'],

@@ -1,0 +1,13 @@
+﻿# Credenciales y tokens
+.secrets/
+_googedrive.env
+_facebook.env
+*.env
+
+# Entorno virtual
+.venv/
+venv/
+
+# Archivos Python
+__pycache__/
+*.py[cod]

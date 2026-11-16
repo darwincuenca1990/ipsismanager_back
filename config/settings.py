@@ -10,22 +10,34 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+
 from pathlib import Path
+from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-s&h_6^$_5a*v2-2o1fshq0rxym94a2r*u%h2yg^dcdmn0_x0@e'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-s&h_6^$_5a*v2-2o1fshq0rxym94a2r*u%h2yg^dcdmn0_x0@e')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'true').lower() == 'true'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [host.strip() for host in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if host.strip()]
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()]
+
+if not DEBUG and (not os.getenv('DJANGO_SECRET_KEY') or not ALLOWED_HOSTS):
+    raise ImproperlyConfigured('DJANGO_SECRET_KEY and DJANGO_ALLOWED_HOSTS are required when DJANGO_DEBUG is false.')
+
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 
 # Application definition
@@ -44,7 +56,11 @@ INSTALLED_APPS = [
 
     'usuarios',
     'bailarines',
+    'coreografias',
+    'presentaciones',
     'cumpleanos',
+    'parametros',
+    'trajes',
 ]
 
 MIDDLEWARE = [
@@ -81,21 +97,14 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
-#}
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'ipsis',
-        'USER': 'ipsis_app',
-        'PASSWORD': 'dvcuenca2017',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME', 'ipsis'),
+        'USER': os.getenv('DB_USER', 'ipsis_app'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -134,7 +143,16 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+GOOGLE_DRIVE_TOKEN_FILE = BASE_DIR / '.secrets' / 'google_drive_token.json'
+GOOGLE_DRIVE_FOLDER_ID = os.getenv(
+    'GOOGLE_DRIVE_FOLDER_ID',
+    '1cUXyAWAEqSwdtaJg3M1acXdPWR-iejrZ'
+)
 
 
 # Email
