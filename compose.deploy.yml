@@ -30,6 +30,17 @@ services:
       retries: 12
       start_period: 20s
 
+  frontend:
+    image: ${FRONT_IMAGE:?FRONT_IMAGE must identify the frontend image}
+    container_name: ipsis-frontend
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:8080:80"
+
+    networks:
+      - ipsis_network
+
 networks:
   ipsis_network:
     external: true
