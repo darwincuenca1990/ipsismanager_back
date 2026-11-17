@@ -38,7 +38,8 @@ if not DEBUG and (not os.getenv('DJANGO_SECRET_KEY') or not ALLOWED_HOSTS):
 
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
-
+# Reconocer HTTPS cuando Django está detrás de Nginx
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 
