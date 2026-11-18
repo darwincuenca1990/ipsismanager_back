@@ -43,6 +43,27 @@ class BailarinEstudioTrabajoTests(APITestCase):
             self.assertIsNone(getattr(bailarin, campo))
             self.assertIsNone(self.client.get(self.url).data[0][campo])
 
+    def test_fotografia_se_sirve_desde_el_blob_de_base_de_datos(self):
+        grupo = GrupoFamiliar.objects.get()
+        bailarin = Bailarin.objects.create(
+            grupo_familiar=grupo,
+            elenco=Bailarin.Elenco.PLANTA,
+            cedula='foto',
+            apellidos='Apellido',
+            nombres='Nombre',
+            fecha_nacimiento='2010-01-01',
+            fotografia='foto.png',
+            fotografia_blob=b'contenido de imagen',
+        )
+
+        response = self.client.get(
+            reverse('bailarin-fotografia', args=[bailarin.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b'contenido de imagen')
+        self.assertEqual(response['Content-Type'], 'image/png')
+
     def test_crear_requiere_valor_si_indicador_es_verdadero(self):
         for indicador, campo in (
             ('estudia', 'institucion_estudio'), ('trabaja', 'lugar_trabajo')

@@ -1,13 +1,14 @@
+import mimetypes
 from calendar import isleap, monthrange
 from datetime import date
 from datetime import timedelta
 from functools import reduce
 from operator import or_
 
-from django.http import Http404, HttpResponse
 from django.db.models import Case, IntegerField, OuterRef, Q, Subquery, Value, When
 from django.db.models.deletion import ProtectedError
 from django.db.models.functions import ExtractDay
+from django.http import Http404, HttpResponse
 from django.utils import timezone
 from django.utils.http import content_disposition_header
 from rest_framework.decorators import action
@@ -15,7 +16,6 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from .google_drive import GoogleDriveFileNotFound, download_bailarin_photo
 from .importacion_excel import importar_bailarines_excel
 from .models import Bailarin, GrupoFamiliar, Inscripcion
 from .serializers import (
@@ -27,6 +27,7 @@ from .serializers import (
 )
 
 from usuarios.permisos import PermisosPorModelo
+from parametros.servicios import obtener_parametro
 
 
 class BailarinViewSet(ModelViewSet):
@@ -58,9 +59,23 @@ class BailarinViewSet(ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='candidatos-elenco-planta')
     def candidatos_elenco_planta(self, request):
+        valor_meses = obtener_parametro('MES_CUMPLE_CAND_PLANTA')
+        try:
+            meses = int(valor_meses)
+            if meses < 0:
+                raise ValueError
+        except (TypeError, ValueError) as error:
+            raise ValidationError({
+                'MES_CUMPLE_CAND_PLANTA': (
+                    'Debe existir un parámetro ACTIVO con un número entero '
+                    'mayor o igual a cero.'
+                )
+            }) from error
+
         hoy = timezone.localdate()
-        anio_limite = hoy.year + (hoy.month + 5) // 12
-        mes_limite = (hoy.month + 5) % 12 + 1
+        mes_desde_enero = hoy.month - 1 + meses
+        anio_limite = hoy.year + mes_desde_enero // 12
+        mes_limite = mes_desde_enero % 12 + 1
         dia_limite = min(hoy.day, monthrange(anio_limite, mes_limite)[1])
         fecha_limite = date(anio_limite, mes_limite, dia_limite)
 
@@ -143,23 +158,19 @@ class BailarinViewSet(ModelViewSet):
     )
     def fotografia(self, request, pk=None):
         bailarin = self.get_object()
-        if not bailarin.fotografia_drive_id:
+        if not bailarin.fotografia_blob:
             raise Http404('Este bailarín no tiene fotografía.')
 
-        try:
-            photo = download_bailarin_photo(
-                bailarin.fotografia_drive_id
-            )
-        except GoogleDriveFileNotFound as error:
-            raise Http404('No se encontró la fotografía.') from error
-
         response = HttpResponse(
-            photo['content'],
-            content_type=photo['mime_type']
+            bailarin.fotografia_blob,
+            content_type=(
+                mimetypes.guess_type(bailarin.fotografia or '')[0]
+                or 'application/octet-stream'
+            )
         )
         response['Content-Disposition'] = content_disposition_header(
             False,
-            photo['name']
+            bailarin.fotografia or 'fotografia'
         )
         return response
 

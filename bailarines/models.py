@@ -165,6 +165,11 @@ class Bailarin(models.Model):
         blank=True
     )
 
+    fotografia_blob = models.BinaryField(
+        null=True,
+        blank=True
+    )
+
     fotografia_drive_id = models.CharField(
         max_length=255,
         null=True,

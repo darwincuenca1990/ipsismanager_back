@@ -3,9 +3,6 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
-from bailarines.google_drive import download_bailarin_photo
-
-
 PLANTILLA_AFICHE = (
     Path(__file__).resolve().parent
     / 'assets'
@@ -89,10 +86,9 @@ def generar_afiche(bailarin, mensaje):
             f'No se encontró la plantilla de afiche: {PLANTILLA_AFICHE}'
         )
 
-    foto_drive = download_bailarin_photo(bailarin.fotografia_drive_id)
     try:
         plantilla = Image.open(PLANTILLA_AFICHE).convert('RGB')
-        foto = Image.open(BytesIO(foto_drive['content'])).convert('RGB')
+        foto = Image.open(BytesIO(bailarin.fotografia_blob)).convert('RGB')
     except (OSError, ValueError) as error:
         raise ValueError(
             'No fue posible leer la plantilla o fotografía del bailarín.'

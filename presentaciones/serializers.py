@@ -38,6 +38,11 @@ class PresentacionSerializer(serializers.ModelSerializer):
         child=serializers.ChoiceField(choices=Bailarin.Elenco.choices),
         allow_empty=False
     )
+    clase_presentacion = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        max_length=60
+    )
     bitacora = BitacoraSerializer(many=True, required=False)
     costo_neto = serializers.DecimalField(
         max_digits=12, decimal_places=2, read_only=True
@@ -48,7 +53,8 @@ class PresentacionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'fecha', 'lugar', 'hora_presentacion', 'persona_cargo',
             'costo_total_presentacion', 'costo_transporte', 'costo_neto',
-            'nombre_transporte', 'tipo_presentacion', 'elencos', 'bitacora',
+            'nombre_transporte', 'tipo_presentacion', 'clase_presentacion',
+            'elencos', 'bitacora',
         ]
         read_only_fields = ['id', 'costo_neto']
 
