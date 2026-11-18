@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
+from parametros.models import Parametro
 from .models import Bailarin, GrupoFamiliar
 
 
@@ -20,6 +21,10 @@ class CandidatosPlantaTests(APITestCase):
             parentesco='Madre'
         )
         self.url = reverse('bailarin-candidatos-elenco-planta')
+        self.parametro = Parametro.objects.create(
+            nombre='MES_CUMPLE_CAND_PLANTA',
+            valor='6'
+        )
 
     def crear_bailarin(self, cedula, fecha, elenco=Bailarin.Elenco.INFANTIL):
         return Bailarin.objects.create(
@@ -50,6 +55,31 @@ class CandidatosPlantaTests(APITestCase):
         )
         limite.refresh_from_db()
         self.assertEqual(limite.elenco, Bailarin.Elenco.INFANTIL)
+
+    @patch('bailarines.views.timezone.localdate', return_value=date(2026, 11, 10))
+    def test_usa_el_numero_de_meses_configurado(self, fecha_actual):
+        self.parametro.valor = '3'
+        self.parametro.save(update_fields=['valor'])
+        limite = self.crear_bailarin('limite', date(2013, 2, 10))
+        self.crear_bailarin('fuera', date(2013, 2, 11))
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['fecha_limite'], '2027-02-10')
+        self.assertEqual(
+            [item['id'] for item in response.data['data']],
+            [limite.id]
+        )
+
+    def test_parametro_debe_ser_un_entero_no_negativo(self):
+        self.parametro.valor = 'seis'
+        self.parametro.save(update_fields=['valor'])
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('MES_CUMPLE_CAND_PLANTA', response.data)
 
     @patch('bailarines.views.timezone.localdate', return_value=date(2025, 8, 31))
     def test_fin_de_mes_y_nacidos_el_29(self, fecha_actual):

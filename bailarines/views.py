@@ -27,6 +27,7 @@ from .serializers import (
 )
 
 from usuarios.permisos import PermisosPorModelo
+from parametros.servicios import obtener_parametro
 
 
 class BailarinViewSet(ModelViewSet):
@@ -58,9 +59,23 @@ class BailarinViewSet(ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='candidatos-elenco-planta')
     def candidatos_elenco_planta(self, request):
+        valor_meses = obtener_parametro('MES_CUMPLE_CAND_PLANTA')
+        try:
+            meses = int(valor_meses)
+            if meses < 0:
+                raise ValueError
+        except (TypeError, ValueError) as error:
+            raise ValidationError({
+                'MES_CUMPLE_CAND_PLANTA': (
+                    'Debe existir un parámetro ACTIVO con un número entero '
+                    'mayor o igual a cero.'
+                )
+            }) from error
+
         hoy = timezone.localdate()
-        anio_limite = hoy.year + (hoy.month + 5) // 12
-        mes_limite = (hoy.month + 5) % 12 + 1
+        mes_desde_enero = hoy.month - 1 + meses
+        anio_limite = hoy.year + mes_desde_enero // 12
+        mes_limite = mes_desde_enero % 12 + 1
         dia_limite = min(hoy.day, monthrange(anio_limite, mes_limite)[1])
         fecha_limite = date(anio_limite, mes_limite, dia_limite)
 
