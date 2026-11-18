@@ -25,6 +25,7 @@ class Presentacion(models.Model):
     )
     nombre_transporte = models.CharField(max_length=200)
     tipo_presentacion = models.CharField(max_length=20, choices=Tipo.choices)
+    clase_presentacion = models.CharField(max_length=60, default='')
 
     class Meta:
         db_table = 'presentaciones_presentacion'

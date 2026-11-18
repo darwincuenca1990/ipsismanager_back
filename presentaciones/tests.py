@@ -46,6 +46,7 @@ class PresentacionAPITests(APITestCase):
             'costo_transporte': '100.00',
             'nombre_transporte': 'Bus',
             'tipo_presentacion': 'FESTIVALIPSIS',
+            'clase_presentacion': 'Festival',
             'elencos': ['INFANTIL', 'PLANTA'],
             'bitacora': [
                 {
@@ -67,6 +68,7 @@ class PresentacionAPITests(APITestCase):
         response = self.crear()
         pk = response.data['id']
         self.assertEqual(response.data['costo_neto'], '400.00')
+        self.assertEqual(response.data['clase_presentacion'], 'Festival')
         self.assertEqual(response.data['elencos'], ['INFANTIL', 'PLANTA'])
         self.assertEqual(response.data['bitacora'], self.data['bitacora'])
         detalle = reverse('presentacion-detail', args=[pk])
@@ -74,10 +76,14 @@ class PresentacionAPITests(APITestCase):
         self.assertEqual(self.client.get(detalle).data['bitacora'], self.data['bitacora'])
 
         response = self.client.patch(
-            detalle, {'costo_transporte': '125.25'}, format='json'
+            detalle, {
+                'costo_transporte': '125.25',
+                'clase_presentacion': 'Gala',
+            }, format='json'
         )
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data['costo_neto'], '374.75')
+        self.assertEqual(response.data['clase_presentacion'], 'Gala')
         self.assertEqual(response.data['bitacora'], self.data['bitacora'])
 
         bitacora = [{
@@ -129,6 +135,8 @@ class PresentacionAPITests(APITestCase):
         response = self.crear()
         detalle = reverse('presentacion-detail', args=[response.data['id']])
         invalidos = [
+            {'clase_presentacion': ''},
+            {'clase_presentacion': 'C' * 61},
             {'persona_cargo': 999999},
             {'costo_transporte': '-1.00'},
             {'tipo_presentacion': 'UN ELENCO'},
