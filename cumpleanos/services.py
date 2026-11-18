@@ -200,13 +200,8 @@ def generar_tarjeta_manual(tarjeta):
         motivos.append('no tiene una inscripción ACTIVO')
     if not bailarin.autorizado_publicacion:
         motivos.append('no tiene autorización de publicación ACTIVA')
-    if not bailarin.fotografia or not bailarin.fotografia.strip():
+    if not bailarin.fotografia_blob:
         motivos.append('no tiene fotografía registrada')
-    if (
-        not bailarin.fotografia_drive_id
-        or not bailarin.fotografia_drive_id.strip()
-    ):
-        motivos.append('no tiene fotografía de Drive registrada')
     if plantilla is None:
         motivos.append(
             f'no existe una plantilla ACTIVA para el elenco {bailarin.elenco}'
@@ -292,14 +287,8 @@ def detectar_cumpleanos(fecha=None):
         if not bailarin.autorizado_publicacion:
             motivos.append('no tiene autorización de publicación ACTIVA')
 
-        if not bailarin.fotografia or not bailarin.fotografia.strip():
+        if not bailarin.fotografia_blob:
             motivos.append('no tiene fotografía registrada')
-
-        if (
-            not bailarin.fotografia_drive_id
-            or not bailarin.fotografia_drive_id.strip()
-        ):
-            motivos.append('no tiene fotografía de Drive registrada')
 
         plantilla = plantillas.get(bailarin.elenco)
         if plantilla is None:

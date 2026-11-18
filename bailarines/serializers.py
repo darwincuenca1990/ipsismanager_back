@@ -4,7 +4,6 @@ import json
 from django.db import transaction
 from rest_framework import serializers
 
-from .google_drive import upload_bailarin_photo
 from .models import Bailarin, GrupoFamiliar, Inscripcion
 
 
@@ -166,12 +165,11 @@ class BailarinSerializer(serializers.ModelSerializer):
             'detalle_enfermedad',
             'correo',
             'fotografia',
-            'fotografia_drive_id',
             'autorizado_publicacion',
             'fecha_autorizacion_publicacion',
         ]
 
-        read_only_fields = ['id', 'fotografia_drive_id']
+        read_only_fields = ['id']
 
     def validate(self, attrs):
         errors = {}
@@ -198,11 +196,8 @@ class BailarinSerializer(serializers.ModelSerializer):
         inscripcion_data = validated_data.pop('inscripcion')
         fotografia = validated_data.pop('fotografia', None)
         if fotografia is not None:
-            fotografia_drive = upload_bailarin_photo(
-                fotografia
-            )
-            validated_data['fotografia'] = fotografia_drive['name']
-            validated_data['fotografia_drive_id'] = fotografia_drive['id']
+            validated_data['fotografia'] = fotografia.name
+            validated_data['fotografia_blob'] = fotografia.read()
         bailarin = super().create(validated_data)
         Inscripcion.objects.create(
             bailarin=bailarin,
@@ -213,13 +208,13 @@ class BailarinSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         inscripcion_data = validated_data.pop('inscripcion', None)
-        fotografia = validated_data.get('fotografia')
-        if fotografia is not None:
-            fotografia_drive = upload_bailarin_photo(
-                fotografia
-            )
-            validated_data['fotografia'] = fotografia_drive['name']
-            validated_data['fotografia_drive_id'] = fotografia_drive['id']
+        if 'fotografia' in validated_data:
+            fotografia = validated_data['fotografia']
+            if fotografia is None:
+                validated_data['fotografia_blob'] = None
+            else:
+                validated_data['fotografia'] = fotografia.name
+                validated_data['fotografia_blob'] = fotografia.read()
         bailarin = super().update(instance, validated_data)
 
         if inscripcion_data is not None:

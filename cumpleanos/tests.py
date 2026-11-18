@@ -67,7 +67,7 @@ class PlantillaCumpleanosEndpointTests(APITestCase):
             'nombres': 'Ana',
             'fecha_nacimiento': date(2010, 11, 9),
             'fotografia': 'ana.jpg',
-            'fotografia_drive_id': 'drive-id',
+            'fotografia_blob': self.crear_fotografia_blob(),
             'autorizado_publicacion': True,
         }
         datos.update(overrides)
@@ -78,6 +78,12 @@ class PlantillaCumpleanosEndpointTests(APITestCase):
             estado=Inscripcion.Estado.ACTIVO
         )
         return bailarin
+
+    @staticmethod
+    def crear_fotografia_blob():
+        foto = BytesIO()
+        Image.new('RGB', (160, 240), color='blue').save(foto, format='JPEG')
+        return foto.getvalue()
 
     def test_list_returns_data_envelope_and_display_name(self):
         response = self.client.get(self.url)
@@ -179,7 +185,7 @@ class PlantillaCumpleanosEndpointTests(APITestCase):
         self.crear_bailarin(
             elenco=Bailarin.Elenco.ASPIRANTE_INFANTIL,
             fotografia='',
-            fotografia_drive_id='',
+            fotografia_blob=None,
             autorizado_publicacion=False
         )
         bailarin = Bailarin.objects.get(cedula='1234567890')
@@ -194,9 +200,8 @@ class PlantillaCumpleanosEndpointTests(APITestCase):
             'PARA EL BAILARIN Ana Pérez NO SE GENERO LA TARJETA POR '
             'LOS SIGUIENTES MOTIVOS: no tiene una inscripción ACTIVO; '
             'no tiene autorización de publicación ACTIVA; no tiene '
-            'fotografía registrada; no tiene fotografía de Drive '
-            'registrada; no existe una plantilla ACTIVA para el elenco '
-            'ASPIRANTE INFANTIL.'
+            'fotografía registrada; no existe una plantilla ACTIVA para '
+            'el elenco ASPIRANTE INFANTIL.'
         )
 
     @patch('cumpleanos.services.generar_afiche', return_value=b'afiche')
@@ -597,14 +602,7 @@ class PlantillaCumpleanosEndpointTests(APITestCase):
             self.client.get(reverse('publicacion-red-social-list')).status_code, 403
         )
 
-    @patch('cumpleanos.generador_afiches.download_bailarin_photo')
-    def test_afiche_generator_uses_drive_photo_and_template(
-        self,
-        download_photo
-    ):
-        foto = BytesIO()
-        Image.new('RGB', (160, 240), color='blue').save(foto, format='JPEG')
-        download_photo.return_value = {'content': foto.getvalue()}
+    def test_afiche_generator_uses_database_photo_and_template(self):
         bailarin = self.crear_bailarin()
 
         contenido = generar_afiche(
@@ -612,7 +610,6 @@ class PlantillaCumpleanosEndpointTests(APITestCase):
             '¡Feliz cumpleaños, Ana Pérez!'
         )
 
-        download_photo.assert_called_once_with('drive-id')
         afiche = Image.open(BytesIO(contenido))
         self.assertEqual(afiche.format, 'JPEG')
         self.assertEqual(afiche.size, (1080, 1350))

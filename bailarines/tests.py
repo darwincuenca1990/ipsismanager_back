@@ -1,9 +1,11 @@
 from datetime import date
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase, override_settings
+from PIL import Image
 
 from .google_drive import (
     GoogleDriveUploadError,
@@ -108,10 +110,48 @@ class GoogleDriveUploadTests(SimpleTestCase):
         self.assertTrue(call_args.kwargs['supportsAllDrives'])
         drive.files.return_value.create.return_value.execute.assert_called_once()
 
-    def test_drive_file_id_is_exposed_as_read_only(self):
+    def test_drive_file_id_is_not_exposed_in_api(self):
         serializer = BailarinSerializer()
 
-        self.assertTrue(serializer.fields['fotografia_drive_id'].read_only)
+        self.assertNotIn('fotografia_drive_id', serializer.fields)
+
+
+class BailarinPhotoPersistenceTests(TestCase):
+
+    def test_create_stores_photo_bytes_in_database(self):
+        grupo_familiar = GrupoFamiliar.objects.create(
+            nombres_completos_representante='Representante',
+            celular_representante='0999999999',
+            parentesco='Madre'
+        )
+        foto = BytesIO()
+        Image.new('RGB', (1, 1)).save(foto, format='PNG')
+        data = {
+            'grupo_familiar_id': grupo_familiar.pk,
+            'elenco': Bailarin.Elenco.PLANTA,
+            'cedula': '1234567890',
+            'apellidos': 'Apellido',
+            'nombres': 'Nombre',
+            'fecha_nacimiento': '2010-01-01',
+            'inscripcion': {
+                'fecha_ingreso_agrupacion': '2024-01-01',
+                'estado': Inscripcion.Estado.ACTIVO,
+            },
+            'fotografia': SimpleUploadedFile(
+                'foto.png',
+                foto.getvalue(),
+                content_type='image/png'
+            ),
+        }
+
+        serializer = BailarinSerializer(data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        bailarin = serializer.save()
+
+        bailarin.refresh_from_db()
+        self.assertEqual(bailarin.fotografia, 'foto.png')
+        self.assertEqual(bailarin.fotografia_blob, foto.getvalue())
+        self.assertIsNone(bailarin.fotografia_drive_id)
 
 
 class GoogleDriveDownloadTests(SimpleTestCase):
