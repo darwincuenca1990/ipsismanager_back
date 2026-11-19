@@ -64,6 +64,10 @@ class BailarinEstudioTrabajoTests(APITestCase):
         self.assertEqual(response.content, b'contenido de imagen')
         self.assertEqual(response['Content-Type'], 'image/png')
 
+        response = self.client.get(f'/api/bailarines//{bailarin.pk}/fotografia/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b'contenido de imagen')
+
     def test_crear_requiere_valor_si_indicador_es_verdadero(self):
         for indicador, campo in (
             ('estudia', 'institucion_estudio'), ('trabaja', 'lugar_trabajo')
