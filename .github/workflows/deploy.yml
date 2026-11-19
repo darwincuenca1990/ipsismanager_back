@@ -102,4 +102,5 @@ jobs:
           [[ "$IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+:[a-f0-9]{40}$ ]]
           ssh_options=(-i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes)
           scp "${ssh_options[@]}" -P "$SSH_PORT" compose.deploy.yml "$SSH_USER@$SSH_HOST:/opt/ipsismanager/compose.deploy.yml"
-          ssh "${ssh_options[@]}" -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "IMAGE='$IMAGE' bash -s" < deploy/deploy.sh
+          scp "${ssh_options[@]}" -P "$SSH_PORT" deploy/deploy.sh "$SSH_USER@$SSH_HOST:/opt/ipsismanager/deploy.sh"
+          ssh "${ssh_options[@]}" -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "IMAGE='$IMAGE' bash /opt/ipsismanager/deploy.sh"
